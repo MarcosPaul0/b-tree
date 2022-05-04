@@ -3,403 +3,441 @@
 
 #include "btree.h"
 
-struct noB {
-    int *chaves; //array de chaves
-    struct noB **ponteiros; //array de ponteiros com o endereço para os filhos
-    struct noB *pai;
-    int ocupacao; //qunatas chaves válidas possui o nó
-    int folha; // 0 não é folha; 1 é folha
+struct bNode {
+    int *keys; //array de keys
+    struct bNode **pointers; //array de pointers com o endereço para os filhos
+    struct bNode *father;
+    int occupation; //qunatas keys válidas possui o nó
+    int leaf; // 0 não é leaf; 1 é leaf
 };
 
-struct arvore {
-    struct noB *sentinela;
-    int ordem; // representa o número de filhos que o nó pode ter
+struct tree {
+    struct bNode *sentinel;
+    int order; // representa o número de filhos que o nó pode ter
 };
 
-arvoreB * criaArvore(int ordem) {
-    arvoreB *A = (arvoreB*)malloc(sizeof(arvoreB));//aloca memória para árvore
-    if (!A) {
+bTree * createBTree(int order) {
+    bTree *T = (bTree*)malloc(sizeof(bTree));//aloca memória para árvore
+
+    if (!T) {
         printf("Erro ao alocar memoria");
         return NULL;
     }
-    noB *sent = NULL; //cria sentinela
-    A->ordem = ordem; //seta a ordem da árvore
-    A->sentinela = sent; //seta a sentinela na árvore
-    return A;
+
+    bNode *sent = NULL; //cria sentinel
+    T->order = order; //seta a order da árvore
+    T->sentinel = sent; //seta a sentinel na árvore
+    return T;
 }
 
-noB *alocaNo(arvoreB *A, int f) {
-    noB *novoNo = (noB*)malloc(sizeof(noB)); //aloca memória do novo nó
-    if (!novoNo) {
+bNode *allocateNode(bTree *T, int f) {
+    bNode *newNode = (bNode*)malloc(sizeof(bNode)); //aloca memória do novo nó
+
+    if (!newNode) {
         printf("Erro ao alocar memoria");
         return NULL;
     }
 
-    novoNo->chaves = (int*) calloc(A->ordem, sizeof(int)); //aloca memória das chaves do nó
-    if (!novoNo->chaves) {
+    newNode->keys = (int*) calloc(T->order, sizeof(int)); //aloca memória das keys do nó
+
+    if (!newNode->keys) {
         printf("Erro ao alocar memoria");
         return NULL;
     }
 
-    novoNo->ponteiros = (noB**)calloc(A->ordem + 1, sizeof(noB*)); //aloca memória dos ponteiros para os filhos
-    novoNo->ocupacao = 0;
-    novoNo->folha = f;
-    novoNo->pai = NULL;
-    return novoNo;
+    newNode->pointers = (bNode**)calloc(T->order + 1, sizeof(bNode*)); //aloca memória dos pointers para os filhos
+    newNode->occupation = 0;
+    newNode->leaf = f;
+    newNode->father = NULL;
+
+    return newNode;
 }
 
-void insereElemento(arvoreB *A, int chave) {
-    noB *aux = A->sentinela; //começa como a sentinela
-    int i, validacao = 0;
+void insertElement(bTree *T, int key) {
+    bNode *aux = T->sentinel; //começa como a sentinel
+    int i, validation = 0;
+
     if(aux == NULL) {
-        aux = alocaNo(A, 1); //aloca o novo nó na raiz
-        aux->chaves[0] = chave;
-        aux->ocupacao = 1;
-        A->sentinela = aux;
-        aux->pai = A->sentinela;
+        aux = allocateNode(T, 1); //aloca o novo nó na raiz
+        aux->keys[0] = key;
+        aux->occupation = 1;
+        T->sentinel = aux;
+        aux->father = T->sentinel;
+
         return;
     }
-    while(aux->folha == 0) {  //Procurar a folha correta
-        if(aux->ocupacao == A->ordem - 1 && aux->folha == 0 && validacao != 1 && A->ordem % 2 == 0) {
-            split(A, aux, chave);
-            validacao = 1;
-            aux = aux->pai;
+
+    while(aux->leaf == 0) {  //Procurar a leaf correta
+        if(aux->occupation == T->order - 1 && aux->leaf == 0 && validation != 1 && T->order % 2 == 0) {
+            split(T, aux, key);
+            validation = 1;
+            aux = aux->father;
         }
+
         i = 0;
-        while ((aux->chaves[i] < chave) && (i < aux->ocupacao) && (i < A->ordem)) {
+        while ((aux->keys[i] < key) && (i < aux->occupation) && (i < T->order)) {
             i++; //procura o ponteiro correto
         }
-        aux = aux->ponteiros[i];
+
+        aux = aux->pointers[i];
     }
 
-    i = aux->ocupacao; //recebe o número de ocupações
-    while ((chave < aux->chaves[i - 1]) && (i > 0)) { //procura o lugar ideal para inserir a chave
-        aux->chaves[i] = aux->chaves[i - 1]; //faz o shift nos números
+    i = aux->occupation; //recebe o número de ocupações
+    while ((key < aux->keys[i - 1]) && (i > 0)) { //procura o lugar ideal para inserir a key
+        aux->keys[i] = aux->keys[i - 1]; //faz o shift nos números
         i--;
     }
-    aux->chaves[i] = chave;
-    aux->ocupacao++; //insere e atualiza a ocupação
+
+    aux->keys[i] = key;
+    aux->occupation++; //insere e atualiza a ocupação
     
-    if(aux->ocupacao == A->ordem) {   //nó folha está cheio
-        split(A, aux, chave); //realiza o split passando a árvore, no em que o elemnto seria inserido e a chave que será inserida 
+    if(aux->occupation == T->order) {   //nó leaf está cheio
+        split(T, aux, key); //realiza o split passando a árvore, no em que o elemnto seria inserido e a key que será inserida 
     }
+
     return;
 }
 
-void split(arvoreB *A, noB *noCheio, int chave) {
-    if(A->ordem % 2 != 0) {
-        int ocupacaoIntermed = A->ordem; //serve para realizar a atualização dos valores do irmão
-        int meio = A->ordem/2; //índice meio do vetor de chaves
-        int Vmeio = noCheio->chaves[meio]; //elemento chave do meio do vetor de chaves
+void split(bTree *T, bNode *fullNode, int key) {
+    if(T->order % 2 != 0) {
+        int occupationIntermed = T->order; //serve para realizar a atualização dos valores do irmão
+        int middle = T->order/2; //índice middle do vetor de keys
+        int middleElement = fullNode->keys[middle]; //elemento key do middle do vetor de keys
         int i, j = 0;
 
-        noB *irmao = alocaNo(A, noCheio->folha); //aloca o irmão, que é a chave do meio nó que estava cheio
-        noB *novaRaiz;
+        bNode *brother = allocateNode(T, fullNode->leaf); //aloca o irmão, que é a key do middle nó que estava cheio
+        bNode *newRoot;
 
-        if (noCheio == A->sentinela) {  //split de raiz
-            novaRaiz = alocaNo(A, 0); //aloca a nova raiz
-            //subir o elemento do meio
-            novaRaiz->ocupacao = 1; 
-            novaRaiz->chaves[0] = Vmeio; //coloca o valor do meio do nó que estava cheio no índice 0 da nova raiz
-            A->sentinela = novaRaiz;
-            novaRaiz->pai = A->sentinela;
-            novaRaiz->ponteiros[0] = noCheio; //aloca os filhos da nova raiz
-            novaRaiz->ponteiros[1] = irmao;
+        if (fullNode == T->sentinel) {  //split de raiz
+            newRoot = allocateNode(T, 0); //aloca a nova raiz
+            //subir o elemento do middle
+            newRoot->occupation = 1; 
+            newRoot->keys[0] = middleElement; //coloca o valor do middle do nó que estava cheio no índice 0 da nova raiz
+            T->sentinel = newRoot;
+            newRoot->father = T->sentinel;
+            newRoot->pointers[0] = fullNode; //aloca os filhos da nova raiz
+            newRoot->pointers[1] = brother;
 
-            noCheio->ocupacao--; //atualiza a ocupação
-            noCheio->pai = novaRaiz;
+            fullNode->occupation--; //atualiza a ocupação
+            fullNode->father = newRoot;
         }
-        //SPLIT DE NÓ INTERMEDIÁRIO OU FOLHA
+
+        //SPLIT DE NÓ INTERMEDIÁRIO OU leaf
         else {
-            i = noCheio->pai->ocupacao; //insere o elemento na posição correta do pai
-            while(i > 0 && Vmeio < noCheio->pai->chaves[i - 1]) {
-                noCheio->pai->chaves[i] = noCheio->pai->chaves[i - 1];
-                noCheio->pai->ponteiros[i + 1] = noCheio->pai->ponteiros[i];
+            i = fullNode->father->occupation; //insere o elemento na posição correta do father
+            while(i > 0 && middleElement < fullNode->father->keys[i - 1]) {
+                fullNode->father->keys[i] = fullNode->father->keys[i - 1];
+                fullNode->father->pointers[i + 1] = fullNode->father->pointers[i];
                 i--;
             }
-            noCheio->pai->chaves[i] = Vmeio;
-            noCheio->pai->ponteiros[i + 1] = irmao;
-            noCheio->pai->ocupacao++;
-            noCheio->ocupacao--;
+
+            fullNode->father->keys[i] = middleElement;
+            fullNode->father->pointers[i + 1] = brother;
+            fullNode->father->occupation++;
+            fullNode->occupation--;
         }
-        irmao->pai = noCheio->pai;
-        //copiar os elementos maior que o meio para o irmão
-        //atualizar os ponteiros
-        for(i=meio + 1; i< ocupacaoIntermed; i++, j++) {
-            irmao->chaves[j] = noCheio->chaves[i];
-            irmao->ponteiros[j] = noCheio->ponteiros[i];
-            if(irmao->ponteiros[j] != NULL)
-                irmao->ponteiros[j]->pai = irmao;
-            irmao->ocupacao++;
-            noCheio->ocupacao--;
-        }
-        irmao->ponteiros[j] = noCheio->ponteiros[i];
-        if(irmao->ponteiros[j] != NULL) {
-            irmao->ponteiros[j]->pai = irmao;
+        brother->father = fullNode->father;
+        //copiar os elementos maior que o middle para o irmão
+        //atualizar os pointers
+        for(i=middle + 1; i< occupationIntermed; i++, j++) {
+            brother->keys[j] = fullNode->keys[i];
+            brother->pointers[j] = fullNode->pointers[i];
+
+            if(brother->pointers[j] != NULL){
+                brother->pointers[j]->father = brother;
+            }
+            brother->occupation++;
+            fullNode->occupation--;
         }
 
-        if(noCheio->pai->ocupacao == A->ordem) {
-            split(A, noCheio->pai, chave);
+        brother->pointers[j] = fullNode->pointers[i];
+        if(brother->pointers[j] != NULL) {
+            brother->pointers[j]->father = brother;
+        }
+
+        if(fullNode->father->occupation == T->order) {
+            split(T, fullNode->father, key);
         }
     } else {
-        int ocupacaoIntermed = A->ordem; //serve para realizar a atualização dos valores do irmão
-        int meio = 0; //índice meio do vetor de chaves
-        if(noCheio->ocupacao == A->ordem - 1) {
-            meio = (noCheio->ocupacao - 1) / 2;
-            ocupacaoIntermed = noCheio->ocupacao;
-        } else if(A->ordem % 2 == 0) {
-            meio = (A->ordem/2) - 1;
+        int occupationIntermed = T->order; //serve para realizar a atualização dos valores do irmão
+        int middle = 0; //índice middle do vetor de keys
+
+        if(fullNode->occupation == T->order - 1) {
+            middle = (fullNode->occupation - 1) / 2;
+            occupationIntermed = fullNode->occupation;
+        } else if(T->order % 2 == 0) {
+            middle = (T->order/2) - 1;
         }
-        int Vmeio = noCheio->chaves[meio]; //elemento chave do meio do vetor de chaves
+
+        int middleElement = fullNode->keys[middle]; //elemento key do middle do vetor de keys
         int i, j = 0;
 
-        noB *irmao = alocaNo(A, noCheio->folha); //aloca o irmão, que é a chave do meio nó que estava cheio
-        noB *novaRaiz;
+        bNode *brother = allocateNode(T, fullNode->leaf); //aloca o irmão, que é a key do middle nó que estava cheio
+        bNode *newRoot;
 
-        if (noCheio == A->sentinela) { //split de raiz
-            novaRaiz = alocaNo(A, 0); //aloca a nova raiz
-            //subir o elemento do meio
-            novaRaiz->ocupacao = 1; 
-            novaRaiz->chaves[0] = Vmeio; //coloca o valor do meio do nó que estava cheio no índice 0 da nova raiz
-            A->sentinela = novaRaiz;
-            novaRaiz->pai = A->sentinela;
-            novaRaiz->ponteiros[0] = noCheio; //aloca os filhos da nova raiz
-            novaRaiz->ponteiros[1] = irmao;
+        if (fullNode == T->sentinel) { //split de raiz
+            newRoot = allocateNode(T, 0); //aloca a nova raiz
+            //subir o elemento do middle
+            newRoot->occupation = 1; 
+            newRoot->keys[0] = middleElement; //coloca o valor do middle do nó que estava cheio no índice 0 da nova raiz
+            T->sentinel = newRoot;
+            newRoot->father = T->sentinel;
+            newRoot->pointers[0] = fullNode; //aloca os filhos da nova raiz
+            newRoot->pointers[1] = brother;
 
-            noCheio->ocupacao--; //atualiza a ocupação
-            noCheio->pai = novaRaiz;
+            fullNode->occupation--; //atualiza a ocupação
+            fullNode->father = newRoot;
         }
-        //SPLIT DE NÓ INTERMEDIÁRIO OU FOLHA
+
+        //SPLIT DE NÓ INTERMEDIÁRIO OU leaf
         else {
-            i = noCheio->pai->ocupacao; //insere o elemento na posição correta do pai
-            while(i > 0 && Vmeio < noCheio->pai->chaves[i - 1]) {
-                noCheio->pai->chaves[i] = noCheio->pai->chaves[i - 1];
-                noCheio->pai->ponteiros[i + 1] = noCheio->pai->ponteiros[i];
+            i = fullNode->father->occupation; //insere o elemento na posição correta do father
+            while(i > 0 && middleElement < fullNode->father->keys[i - 1]) {
+                fullNode->father->keys[i] = fullNode->father->keys[i - 1];
+                fullNode->father->pointers[i + 1] = fullNode->father->pointers[i];
                 i--;
             }
-            noCheio->pai->chaves[i] = Vmeio;
-            noCheio->pai->ponteiros[i + 1] = irmao;
-            noCheio->pai->ocupacao++;
-            noCheio->ocupacao--;
+            fullNode->father->keys[i] = middleElement;
+            fullNode->father->pointers[i + 1] = brother;
+            fullNode->father->occupation++;
+            fullNode->occupation--;
         }
-        irmao->pai = noCheio->pai;
-        //copiar os elementos maior que o meio para o irmão
-        //atualizar os ponteiros
-        for(i=meio + 1; i< ocupacaoIntermed; i++, j++) {
-            irmao->chaves[j] = noCheio->chaves[i];
-            irmao->ponteiros[j] = noCheio->ponteiros[i];
-            if(irmao->ponteiros[j] != NULL)
-                irmao->ponteiros[j]->pai = irmao;
-            irmao->ocupacao++;
-            noCheio->ocupacao--;
+        brother->father = fullNode->father;
+        //copiar os elementos maior que o middle para o irmão
+        //atualizar os pointers
+        for(i=middle + 1; i< occupationIntermed; i++, j++) {
+            brother->keys[j] = fullNode->keys[i];
+            brother->pointers[j] = fullNode->pointers[i];
+            if(brother->pointers[j] != NULL)
+                brother->pointers[j]->father = brother;
+            brother->occupation++;
+            fullNode->occupation--;
         }
-        irmao->ponteiros[j] = noCheio->ponteiros[i];
-        if(irmao->ponteiros[j] != NULL) {
-            irmao->ponteiros[j]->pai = irmao;
+
+        brother->pointers[j] = fullNode->pointers[i];
+        if(brother->pointers[j] != NULL) {
+            brother->pointers[j]->father = brother;
         }
     }
 }
 
-void rotacaoEsq(noB * noRem, int pos) {
-    noB * irmao = noRem->pai->ponteiros[pos-1];
-    int ocpNoRem = noRem->ocupacao;
-    int ocpNoIrmao = irmao->ocupacao;
+void leftRotation(bNode * noRem, int pos) {
+    bNode * brother = noRem->father->pointers[pos-1];
+    int ocpNoRem = noRem->occupation;
+    int ocpNoIrmao = brother->occupation;
     int i = ocpNoRem;
 
     while(i > 0) {
-        noRem->chaves[i] = noRem->chaves[i-1];
-        noRem->ponteiros[i+1] = noRem->ponteiros[i];
+        noRem->keys[i] = noRem->keys[i-1];
+        noRem->pointers[i+1] = noRem->pointers[i];
         i--;
     }
-    noRem->ponteiros[i+1] = noRem->ponteiros[i];
-    noRem->chaves[i] = noRem->pai->chaves[pos - 1];
-    noRem->ocupacao++;
-    noRem->pai->chaves[pos - 1] = irmao->chaves[ocpNoIrmao-1];
-    noRem->ponteiros[0] = irmao->ponteiros[ocpNoIrmao];
-    if (noRem->ponteiros[0] != NULL)
-        noRem->ponteiros[0]->pai = noRem;
-    irmao->ocupacao--;
+    noRem->pointers[i+1] = noRem->pointers[i];
+    noRem->keys[i] = noRem->father->keys[pos - 1];
+    noRem->occupation++;
+    noRem->father->keys[pos - 1] = brother->keys[ocpNoIrmao-1];
+    noRem->pointers[0] = brother->pointers[ocpNoIrmao];
+    if (noRem->pointers[0] != NULL)
+        noRem->pointers[0]->father = noRem;
+    brother->occupation--;
     return;
 }
 
-void rotacaoDir(noB * noRem, int pos) {
-    noB * irmao = noRem->pai->ponteiros[pos+1];
-    int ocpNoIrmao = irmao->ocupacao;
+void rightRotation(bNode * noRem, int pos) {
+    bNode * brother = noRem->father->pointers[pos+1];
+    int ocpNoIrmao = brother->occupation;
     int i = 0;
-    noRem->chaves[noRem->ocupacao] = noRem->pai->chaves[pos];
-    noRem->ocupacao++;
-    noRem->pai->chaves[pos] = irmao->chaves[0];
-    noRem->ponteiros[noRem->ocupacao] = irmao->ponteiros[0];
-    if(!noRem->folha)
-        noRem->ponteiros[noRem->ocupacao]->pai = noRem;
+
+    noRem->keys[noRem->occupation] = noRem->father->keys[pos];
+    noRem->occupation++;
+    noRem->father->keys[pos] = brother->keys[0];
+    noRem->pointers[noRem->occupation] = brother->pointers[0];
+    if(!noRem->leaf) {
+        noRem->pointers[noRem->occupation]->father = noRem;
+    }
+
     while (i < ocpNoIrmao - 1) {
-        irmao->chaves[i] = irmao->chaves[i + 1];
-        irmao->ponteiros[i] = irmao->ponteiros[i+1];
+        brother->keys[i] = brother->keys[i + 1];
+        brother->pointers[i] = brother->pointers[i+1];
         i++;
     }
-    irmao->ponteiros[i] = irmao->ponteiros[i+1];
-    irmao->ocupacao--;
+
+    brother->pointers[i] = brother->pointers[i+1];
+    brother->occupation--;
+
     return;
 }
 
-void merge(arvoreB *A, noB * noEsq, noB * noDir, int pos) {
-    int i = noEsq->ocupacao;
+void merge(bTree *T, bNode * noEsq, bNode * noDir, int pos) {
+    int i = noEsq->occupation;
     int j;
-    noB *pai = noEsq->pai;
+    bNode *father = noEsq->father;
+
     //UNIR OS DADOS NO noEsq
-    noEsq->chaves[i] = pai->chaves[pos];
-    noEsq->ocupacao++;
-    pai->ocupacao--;
+    noEsq->keys[i] = father->keys[pos];
+    noEsq->occupation++;
+    father->occupation--;
     i++;
-    for (j=0; j < noDir->ocupacao; j++) {
-        noEsq->chaves[i] = noDir->chaves[j];
-        noEsq->ponteiros[i] = noDir->ponteiros[j];
-        if(noEsq->ponteiros[i] != NULL)
-            noEsq->ponteiros[i]->pai = noEsq;
-        noEsq->ocupacao++;
+
+    for (j=0; j < noDir->occupation; j++) {
+        noEsq->keys[i] = noDir->keys[j];
+        noEsq->pointers[i] = noDir->pointers[j];
+        if(noEsq->pointers[i] != NULL)
+            noEsq->pointers[i]->father = noEsq;
+        noEsq->occupation++;
         i++;
     }
-    noEsq->ponteiros[i] = noDir->ponteiros[j];
-    if(noEsq->ponteiros[i] != NULL)
-        noEsq->ponteiros[i]->pai = noEsq;
-    if ((pai->ocupacao == 0) && (pai == A->sentinela)) {
-        A->sentinela = noEsq;
-        noEsq->pai = A->sentinela;
-        noDir->pai = A->sentinela;
-        free(pai);
+
+    noEsq->pointers[i] = noDir->pointers[j];
+    if(noEsq->pointers[i] != NULL) {
+        noEsq->pointers[i]->father = noEsq;
+    }
+
+    if ((father->occupation == 0) && (father == T->sentinel)) {
+        T->sentinel = noEsq;
+        noEsq->father = T->sentinel;
+        noDir->father = T->sentinel;
+        free(father);
         free(noDir);
         return;
     }
-    //SHIFT NOS DADOS DO PAI
-    for (i = pos; i < noEsq->pai->ocupacao; i++) {
-        noEsq->pai->chaves[i] = noEsq->pai->chaves[i + 1];
-        noEsq->pai->ponteiros[i+1] = noEsq->pai->ponteiros[i + 2];
+
+    //SHIFT NOS DTDOS DO father
+    for (i = pos; i < noEsq->father->occupation; i++) {
+        noEsq->father->keys[i] = noEsq->father->keys[i + 1];
+        noEsq->father->pointers[i+1] = noEsq->father->pointers[i + 2];
     }
+
     free(noDir);
     return;
 }
 
-void removeElemento(arvoreB *A, int chave) {
+void removeElement(bTree *T, int key) {
     int i = 0;
-    int posPai = -1;
+    int fatherPosition = -1;
     int j;
-    int min = (A->ordem - 1)/2;
-    if(A->ordem % 2 != 0) {
-        min = A->ordem / 2;
+    int min = (T->order - 1)/2;
+
+    if(T->order % 2 != 0) {
+        min = T->order / 2;
     }
-    int achou = 0;
-    noB *aux = A->sentinela;
+
+    int find = 0;
+    bNode *aux = T->sentinel;
     if (aux == NULL) { //arvore está vazia
         return;
     }
-    while ((aux != NULL) && (achou == 0) && (i<aux->ocupacao)) {
-        if (chave == aux->chaves[i]) {
-            achou = 1;
-            if (posPai == -1) {
-                posPai = i;
-                if (i == aux->ocupacao - 1)
-                    posPai++;
+
+    while ((aux != NULL) && (find == 0) && (i<aux->occupation)) {
+        if (key == aux->keys[i]) {
+            find = 1;
+            if (fatherPosition == -1) {
+                fatherPosition = i;
+                if (i == aux->occupation - 1)
+                    fatherPosition++;
             }
-        }
-        else {
-            if (chave < aux->chaves[i]) {
-                aux = aux->ponteiros[i];
-                posPai = i;
+        } else {
+            if (key < aux->keys[i]) {
+                aux = aux->pointers[i];
+                fatherPosition = i;
                 i = 0;
             } else {
                 i = i + 1;
-                if ((i == aux->ocupacao) && (chave > aux->chaves[i - 1])) {
-                    aux = aux->ponteiros[i];
-                    posPai = i;
+                if ((i == aux->occupation) && (key > aux->keys[i - 1])) {
+                    aux = aux->pointers[i];
+                    fatherPosition = i;
                     i = 0;
                 }
             }
         }
     }
+
     if (aux == NULL) {
         return; //elemento não encontrado na árvore
     }
-    //VERIFICAR SE O ELEMENTO É DE UM NÓ INTERMEDIÁRIO
-    if (aux->folha == 0) {
-        //ENCONTRAR O SUCESSOR E REALIZAR A CÓPIA
-        noB * sucessor = aux->ponteiros[i+1];
-        posPai = i + 1;
-        while (sucessor->ponteiros[0] != NULL) {
-            sucessor = sucessor->ponteiros[0];
-            posPai = 0;
+
+    //VERIFICTR SE O ELEMENTO É DE UM NÓ INTERMEDIÁRIO
+    if (aux->leaf == 0) {
+        //ENCONTRTR O SUCESSOR E RETLIZTR T CÓPIT
+        bNode * sucessor = aux->pointers[i+1];
+        fatherPosition = i + 1;
+        while (sucessor->pointers[0] != NULL) {
+            sucessor = sucessor->pointers[0];
+            fatherPosition = 0;
         }
-        //COPIAR
-        aux->chaves[i] = sucessor->chaves[0];
+        //COPITR
+        aux->keys[i] = sucessor->keys[0];
         aux = sucessor;
         i = 0;
     }
     //REMOVER O ELEMENTO DO NÓ
-    j = aux->ocupacao - 1;
+    j = aux->occupation - 1;
     while (i < j) {
-        aux->chaves[i] = aux->chaves[i+1];
+        aux->keys[i] = aux->keys[i+1];
         i++;
     }
-    aux->ocupacao--;
-    //VERIFICAR SE DESBALANCEOU
-    while(aux->ocupacao < min) {
-        //CHAMAR ROTAÇÃO OU MERGE
-        if ((aux != aux->pai->ponteiros[0]) && (aux->pai->ponteiros[posPai - 1]->ocupacao > min)) { // pode emprestar do irmão da esquerda
-            rotacaoEsq(aux, posPai);
+    aux->occupation--;
+    //VERIFICTR SE DESBTLTNCEOU
+    while(aux->occupation < min) {
+        //CHTMTR ROTTÇÃO OU MERGE
+        if ((aux != aux->father->pointers[0]) && (aux->father->pointers[fatherPosition - 1]->occupation > min)) { // pode emprestar do irmão da esquerda
+            leftRotation(aux, fatherPosition);
         } else {
-            if ((aux != aux->pai->ponteiros[aux->pai->ocupacao])  && (aux->pai->ponteiros[posPai + 1]->ocupacao > min)) { // pode emprestar do irmão da direita
-                rotacaoDir(aux, posPai);
+            if ((aux != aux->father->pointers[aux->father->occupation])  && (aux->father->pointers[fatherPosition + 1]->occupation > min)) { // pode emprestar do irmão da direita
+                rightRotation(aux, fatherPosition);
             } else {
-                if ((posPai != 0) && (aux->pai->ponteiros[posPai - 1] != NULL)) {
-                    posPai--;
-                    merge(A, aux->pai->ponteiros[posPai], aux, posPai);
-                }
-                else
-                    merge(A, aux, aux->pai->ponteiros[posPai + 1], posPai);
-                aux = aux->pai;
-                if (aux == A->sentinela)
+                if ((fatherPosition != 0) && (aux->father->pointers[fatherPosition - 1] != NULL)) {
+                    fatherPosition--;
+                    merge(T, aux->father->pointers[fatherPosition], aux, fatherPosition);
+                } else
+                    merge(T, aux, aux->father->pointers[fatherPosition + 1], fatherPosition);
+                aux = aux->father;
+                if (aux == T->sentinel) {
                     return;
-                //Caso contrário, encontra nova posição no pai
-                posPai = 0;
-                while ((posPai < aux->pai->ocupacao) && (chave > aux->pai->chaves[posPai]))
-                    posPai++;
+                }
+                //Caso contrário, encontra nova posição no father
+                fatherPosition = 0;
+                while ((fatherPosition < aux->father->occupation) && (key > aux->father->keys[fatherPosition])) {
+                    fatherPosition++;
+                }
             }
         }
     }
     return;
 }
 
-void imprimeArvore(noB *raiz) {
+void printBTree(bNode *raiz) {
     int i;
     if (raiz == NULL)
         return;
-    for (i = 0; i < raiz->ocupacao; i++) {
-        printf("%d - %d\t", raiz->chaves[i], raiz->pai->chaves[0]);
+    for (i = 0; i < raiz->occupation; i++) {
+        printf("%d - %d\t", raiz->keys[i], raiz->father->keys[0]);
     }
     printf("\n");
     i = 0;
-    while (i <= raiz->ocupacao) {
-        imprimeArvore(raiz->ponteiros[i]);
+    while (i <= raiz->occupation) {
+        printBTree(raiz->pointers[i]);
         i++;
     }
 }
 
-noB* retornaRaiz(arvoreB *A) {
-    return A->sentinela;
+bNode* getRootNode(bTree *T) {
+    return T->sentinel;
 }
 
-void insereArquivo(arvoreB *A, char nomeArquivo[]) {
-    if(A == NULL) {
+void insertFile(bTree *T, char fileName[]) {
+    if(T == NULL) {
         printf("Árvore não encontrada!");
         exit(0);
     }
 
     FILE *pa;
     int num;
-    pa = fopen(nomeArquivo, "r");
+    pa = fopen(fileName, "r");
 
     while(!feof(pa)) {
         fscanf(pa, "%d\n", &num);
-        insereElemento(A, num);
+        insertElement(T, num);
     }
 
     fclose(pa);

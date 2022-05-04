@@ -1,44 +1,44 @@
 #ifndef INC_9_BTREE_BTREE_H
 #define INC_9_BTREE_BTREE_H
 
-typedef struct noB noB;
-typedef struct arvore arvoreB;
+typedef struct bNode bNode;
+typedef struct tree bTree;
 
 //****FUNÇÕES BÁSICAS******///////////////
 
-arvoreB * criaArvore(int ordem);
+bTree * createBTree(int order);
 
-noB *alocaNo(arvoreB *A, int f);
+bNode *allocateNode(bTree *T, int f);
 //Função que aloca um novo nó
 //A ordem do nó é informado em A
 //Se o nó é folha ou não é informado em f (1 para folha e 0 para não-folha).
 
-void imprimeArvore(noB *raiz);
+void printBTree(bNode *raiz);
 //Imprime a raiz e os nós da esquerda para a direita, por nível
 
-noB* retornaRaiz(arvoreB *A);
+bNode* getRootNode(bTree *T);
 //Retorna a raiz da árvore
 
 //****FUNÇÕES DE INSERÇÃO******///////////////
 
-void insereElemento(arvoreB *A, int chave);
+void insertElement(bTree *T, int key);
 //Insere um elemento na folha de uma árvore B
 
-void insereArquivo(arvoreB *A, char nomeArquivo[]);
+void insertFile(bTree *T, char fileName[]);
 //Lê dados de um arquivo e insere em uma árvore B, chamando a função insereElemento
 
-void split(arvoreB *A, noB *noCheio, int chave);
+void split(bTree *T, bNode *noCheio, int key);
 //Divide um nó cheio em dois - Operação de SPLIT
 
 //****FUNÇÕES DE REMOÇÃO******///////////////
 
-void removeElemento(arvoreB *A, int chave);
+void removeElement(bTree *T, int key);
 //Remove um elemento da árvore B
 
-void rotacaoEsq(noB * noRem, int pos);
+void leftRotation(bNode * noRem, int position);
 
-void rotacaoDir(noB * noRem, int pos);
+void rightRotation(bNode * noRem, int position);
 
-void merge(arvoreB *A, noB * noIrmao, noB * noRem, int pos);
+void merge(bTree *T, bNode * noIrmao, bNode * noRem, int position);
 
 #endif //INC_9_BTREE_BTREE_H

@@ -4,7 +4,7 @@
 #include "btree.h"
 
 int main() {
-    arvoreB *A = criaArvore(5);
+    bTree *T = createBTree(5);
     /* insereElemento(A, 30);
     insereElemento(A, 20);
     insereElemento(A, 10);
@@ -15,13 +15,13 @@ int main() {
     insereElemento(A, 12);
     insereElemento(A, 13);
     insereElemento(A, 14); */
-    insereArquivo(A, "numeros.txt");
-    imprimeArvore(retornaRaiz(A));
+    insertFile(T, "numbers.txt");
+    printBTree(getRootNode(T));
     printf("\n");
-    removeElemento(A, 8);
-    removeElemento(A, 2);
-    removeElemento(A, 7);
-    removeElemento(A, 20);
-    imprimeArvore(retornaRaiz(A));
+    removeElement(T, 8);
+    removeElement(T, 2);
+    removeElement(T, 7);
+    removeElement(T, 20);
+    printBTree(getRootNode(T));
     return 0;
 }
